@@ -1,73 +1,17 @@
-# React + TypeScript + Vite
+# What This System Does
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+- This is a Multimodal RAG (Retrieval-Augmented Generation) system that lets users upload text and images, then ask natural language questions about them. 
 
-Currently, two official plugins are available:
+- When content is uploaded, it is converted into vector embeddings using Google's Gemini Embedding 2 Preview model — which natively supports text and image inputs. 
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- For images, GPT-4o Mini (via InsForge AI Gateway) generates a detailed text description that is stored alongside the vector for context.
 
-## React Compiler
+- When a user asks a question, the query is embedded using the same Gemini model, a cosine similarity search finds the most relevant stored content from PostgreSQL + pgvector, and the top matches are sent as context to GPT-4o Mini which generates a grounded answer. 
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- The entire backend runs on InsForge — edge functions (Deno), PostgreSQL with vector search, file storage, and AI gateway — with the frontend deployed at https://334ywi9p.insforge.site.
 
-## Expanding the ESLint configuration
+<img width="1711" height="874" alt="Screenshot 2026-03-18 171616" src="https://github.com/user-attachments/assets/4c857715-7302-4f89-843b-62a277efacd3" />
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x';
-import reactDom from 'eslint-plugin-react-dom';
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-]);
-```
+<img width="1740" height="867" alt="Screenshot 2026-03-18 164058" src="https://github.com/user-attachments/assets/6bdf9f35-5d5f-48cb-83cc-49b64925a4aa" />
