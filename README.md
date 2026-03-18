@@ -1,6 +1,5 @@
 # Building a Multimodal RAG System with Google Gemini Embeddings and InsForge
 
-
 - This is a Multimodal RAG (Retrieval-Augmented Generation) system that lets users upload text and images, then ask natural language questions about them. 
 
 - When content is uploaded, it is converted into vector embeddings using Google's Gemini Embedding 2 Preview model — which natively supports text and image inputs. 
