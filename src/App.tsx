@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import LandingPage from './components/LandingPage';
 import UploadPanel from './components/UploadPanel';
 import QueryPanel from './components/QueryPanel';
 import { deleteAllEmbeddings, deleteEmbeddingsByDocument } from './api';
@@ -14,8 +15,9 @@ export interface UploadedItem {
 }
 
 export default function App() {
+  const [showApp, setShowApp] = useState(false);
   const [items, setItems] = useState<UploadedItem[]>([]);
-  const [chatKey, setChatKey] = useState(0); // increment to reset chat
+  const [chatKey, setChatKey] = useState(0);
 
   const addItem = (item: UploadedItem) => setItems((p) => [...p, item]);
   const updateItem = (id: string, u: Partial<UploadedItem>) =>
@@ -40,6 +42,10 @@ export default function App() {
   }, []);
 
   const readyCount = items.filter((i) => i.status === 'done').length;
+
+  if (!showApp) {
+    return <LandingPage onStart={() => setShowApp(true)} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans flex flex-col">
