@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import type { Source } from '../types';
 import { queryEmbedding } from '../api';
 
-interface Props { readyCount: number; onNewChat: () => void; }
+interface Props { readyCount: number; onNewChat: () => void; accessToken: string; }
 
 interface Msg {
   id: string;
@@ -36,7 +36,7 @@ function SourcesCollapsible({ sources }: { sources: Source[] }) {
   );
 }
 
-export default function QueryPanel({ readyCount, onNewChat }: Props) {
+export default function QueryPanel({ readyCount, onNewChat, accessToken }: Props) {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -54,7 +54,7 @@ export default function QueryPanel({ readyCount, onNewChat }: Props) {
     setMsgs((p) => [...p, { id: uid, role: 'user', text: q }, { id: aid, role: 'assistant', text: '', loading: true }]);
     setBusy(true);
     try {
-      const res = await queryEmbedding(q);
+      const res = await queryEmbedding(q, accessToken);
       setMsgs((p) => p.map((m) => m.id === aid ? { ...m, text: res.answer, sources: res.sources, loading: false } : m));
     } catch (e) {
       setMsgs((p) => p.map((m) => m.id === aid ? { ...m, text: e instanceof Error ? e.message : 'Something went wrong.', loading: false } : m));

@@ -1,41 +1,40 @@
 import type { QueryResponse } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
-const ANON_KEY = import.meta.env.VITE_INSFORGE_ANON_KEY || '';
 
-function getHeaders(): Record<string, string> {
+// All API calls take the authenticated user's JWT and user ID.
+// The JWT is sent as the Bearer token so PostgREST/InsForge sets the
+// request.jwt.claims context that RLS policies read from.
+
+function authHeaders(accessToken: string): Record<string, string> {
   return {
-    'Authorization': `Bearer ${ANON_KEY}`,
+    'Authorization': `Bearer ${accessToken}`,
   };
 }
 
-export async function queryEmbedding(query: string): Promise<QueryResponse> {
-  const response = await fetch(`${API_URL}/functions/query-embedding`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
+// ── Storage ──────────────────────────────────────────────────────────────────
+
+export async function uploadFile(
+  file: File,
+  userId: string,
+  accessToken: string,
+): Promise<{ key: string; url: string }> {
+  // PUT /api/storage/buckets/{bucket}/objects/{objectKey} is the only endpoint
+  // that preserves a custom path including folder separators.
+  // We namespace every file under {userId}/ so each user's uploads are isolated.
+  const objectKey = `${userId}/${Date.now()}_${file.name}`;
+
+  const form = new FormData();
+  form.append('file', file);
+
+  const response = await fetch(
+    `${API_URL}/api/storage/buckets/uploads/objects/${objectKey}`,
+    {
+      method: 'PUT',
+      headers: authHeaders(accessToken),
+      body: form,
     },
-    body: JSON.stringify({ query }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Request failed: ${errorText}`);
-  }
-
-  const data = await response.json();
-  return data as QueryResponse;
-}
-
-export async function uploadFile(file: File): Promise<{ key: string; url: string }> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await fetch(`${API_URL}/api/storage/buckets/uploads/objects`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: formData,
-  });
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -43,20 +42,32 @@ export async function uploadFile(file: File): Promise<{ key: string; url: string
   }
 
   const data = await response.json();
-  // data.url is already a full URL from the storage API
-  const fileUrl = data.url.startsWith('http') ? data.url : `${API_URL}${data.url}`;
-  return { key: data.key, url: fileUrl };
+  const returnedKey: string = data.key ?? objectKey;
+  const fileUrl = data.url?.startsWith('http')
+    ? data.url
+    : `${API_URL}/api/storage/buckets/uploads/objects/${returnedKey}`;
+
+  return { key: returnedKey, url: fileUrl };
 }
 
-export async function createDocument(fileUrl: string, fileType: string): Promise<string> {
+// ── Documents ─────────────────────────────────────────────────────────────────
+
+export async function createDocument(
+  fileUrl: string,
+  fileType: string,
+  userId: string,
+  accessToken: string,
+): Promise<string> {
+  // user_id is explicitly included so RLS INSERT policy passes and ownership
+  // is recorded for future SELECT / DELETE operations.
   const response = await fetch(`${API_URL}/api/database/records/documents`, {
     method: 'POST',
     headers: {
-      ...getHeaders(),
+      ...authHeaders(accessToken),
       'Content-Type': 'application/json',
       'Prefer': 'return=representation',
     },
-    body: JSON.stringify([{ file_url: fileUrl, file_type: fileType }]),
+    body: JSON.stringify([{ file_url: fileUrl, file_type: fileType, user_id: userId }]),
   });
 
   if (!response.ok) {
@@ -68,16 +79,26 @@ export async function createDocument(fileUrl: string, fileType: string): Promise
   return data[0].id;
 }
 
-export async function processEmbedding(params: {
-  document_id: string;
-  text?: string;
-  file_url?: string;
-  mime_type?: string;
-}): Promise<void> {
+// ── Embeddings ────────────────────────────────────────────────────────────────
+
+export async function processEmbedding(
+  params: {
+    document_id: string;
+    text?: string;
+    file_url?: string;
+    mime_type?: string;
+    user_id: string;
+  },
+  accessToken: string,
+): Promise<void> {
+  // The edge function receives the user JWT so it can store user_id in the
+  // embeddings row using the service key (which bypasses RLS for the insert)
+  // while still recording ownership correctly.
   const response = await fetch(`${API_URL}/functions/process-embedding`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
     },
     body: JSON.stringify(params),
   });
@@ -93,10 +114,41 @@ export async function processEmbedding(params: {
   }
 }
 
-export async function deleteEmbeddingsByDocument(documentId: string): Promise<void> {
+// ── Query ─────────────────────────────────────────────────────────────────────
+
+export async function queryEmbedding(
+  query: string,
+  accessToken: string,
+): Promise<QueryResponse> {
+  // The edge function extracts user_id from the JWT to filter results.
+  const response = await fetch(`${API_URL}/functions/query-embedding`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Request failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data as QueryResponse;
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+
+export async function deleteEmbeddingsByDocument(
+  documentId: string,
+  accessToken: string,
+): Promise<void> {
+  // RLS DELETE policy ensures only the owner's rows are deleted.
   const response = await fetch(
     `${API_URL}/api/database/records/embeddings?document_id=eq.${documentId}`,
-    { method: 'DELETE', headers: getHeaders() }
+    { method: 'DELETE', headers: authHeaders(accessToken) },
   );
   if (!response.ok) {
     const errorText = await response.text();
@@ -104,11 +156,11 @@ export async function deleteEmbeddingsByDocument(documentId: string): Promise<vo
   }
 }
 
-export async function deleteAllEmbeddings(): Promise<void> {
-  // Delete all embeddings by selecting all with a non-null id
+export async function deleteAllEmbeddings(accessToken: string): Promise<void> {
+  // With RLS active the WHERE clause only matches the authenticated user's rows.
   const response = await fetch(
     `${API_URL}/api/database/records/embeddings?id=neq.00000000-0000-0000-0000-000000000000`,
-    { method: 'DELETE', headers: getHeaders() }
+    { method: 'DELETE', headers: authHeaders(accessToken) },
   );
   if (!response.ok) {
     const errorText = await response.text();
@@ -116,19 +168,24 @@ export async function deleteAllEmbeddings(): Promise<void> {
   }
 }
 
-export async function uploadAndProcess(file: File): Promise<{ documentId: string; fileName: string }> {
-  // 1. Upload file to storage
-  const { url: fileUrl } = await uploadFile(file);
+// ── Composite helper ──────────────────────────────────────────────────────────
 
-  // 2. Create document record
-  const documentId = await createDocument(fileUrl, file.type);
+export async function uploadAndProcess(
+  file: File,
+  userId: string,
+  accessToken: string,
+): Promise<{ documentId: string; fileName: string }> {
+  // 1. Upload to user-namespaced storage path
+  const { url: fileUrl } = await uploadFile(file, userId, accessToken);
 
-  // 3. Process embedding
-  await processEmbedding({
-    document_id: documentId,
-    file_url: fileUrl,
-    mime_type: file.type,
-  });
+  // 2. Create document record with user_id (RLS enforced)
+  const documentId = await createDocument(fileUrl, file.type, userId, accessToken);
+
+  // 3. Generate embedding and store with user_id via edge function
+  await processEmbedding(
+    { document_id: documentId, file_url: fileUrl, mime_type: file.type, user_id: userId },
+    accessToken,
+  );
 
   return { documentId, fileName: file.name };
 }

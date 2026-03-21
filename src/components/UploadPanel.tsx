@@ -8,9 +8,14 @@ interface Props {
   updateItem: (id: string, u: Partial<UploadedItem>) => void;
   removeItem: (id: string) => void;
   clearAll: () => void;
+  userId: string;
+  accessToken: string;
 }
 
-export default function UploadPanel({ items, addItem, updateItem, removeItem, clearAll }: Props) {
+export default function UploadPanel({
+  items, addItem, updateItem, removeItem, clearAll,
+  userId, accessToken,
+}: Props) {
   const [textInput, setTextInput] = useState('');
   const [isDragOver, setIsDragOver] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -24,8 +29,10 @@ export default function UploadPanel({ items, addItem, updateItem, removeItem, cl
     setTextInput('');
     setBusy(true);
     try {
-      const docId = await createDocument('', 'text/plain');
-      await processEmbedding({ document_id: docId, text: t });
+      // Create document record owned by the current user
+      const docId = await createDocument('', 'text/plain', userId, accessToken);
+      // Store embedding tagged with this user's id
+      await processEmbedding({ document_id: docId, text: t, user_id: userId }, accessToken);
       updateItem(id, { status: 'done', documentId: docId });
     } catch (e) {
       updateItem(id, { status: 'error', error: e instanceof Error ? e.message : 'Failed' });
@@ -41,13 +48,14 @@ export default function UploadPanel({ items, addItem, updateItem, removeItem, cl
       const preview = URL.createObjectURL(file);
       addItem({ id, fileName: file.name, type: 'image', preview, status: 'processing' });
       try {
-        const result = await uploadAndProcess(file);
+        // Upload to user-namespaced storage path, create document + embedding with user_id
+        const result = await uploadAndProcess(file, userId, accessToken);
         updateItem(id, { status: 'done', documentId: result.documentId });
       } catch (e) {
         updateItem(id, { status: 'error', error: e instanceof Error ? e.message : 'Failed' });
       }
     }
-  }, [addItem, updateItem]);
+  }, [addItem, updateItem, userId, accessToken]);
 
   const doneCount = items.filter((i) => i.status === 'done').length;
 
