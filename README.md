@@ -4,6 +4,10 @@ A full-stack multimodal Retrieval-Augmented Generation (RAG) demo. Upload text a
 
 Built with **InsForge BaaS**, **Google Gemini Embedding 2**, and **React + Vite**.
 
+
+<img width="1331" height="847" alt="image" src="https://github.com/user-attachments/assets/7b3f3b12-9d2c-48b7-924e-69118eb6a38d" />
+
+
 ---
 
 ## How it works
@@ -167,3 +171,22 @@ npm run dev
 ## Deploy to Vercel
 
 Push to GitHub, connect to Vercel, and set the same environment variables (`VITE_INSFORGE_BASE_URL`, `VITE_API_URL`, `VITE_INSFORGE_ANON_KEY`) in Vercel's project settings. The `vercel.json` handles SPA routing.
+
+
+## Screenshots
+
+<img width="1445" height="859" alt="Screenshot 2026-03-21 145409" src="https://github.com/user-attachments/assets/20f186e9-5053-4b01-b5f8-de3a2306a6cd" />
+
+
+
+
+<img width="1775" height="834" alt="Screenshot 2026-03-21 135230" src="https://github.com/user-attachments/assets/39a7e2f4-fb35-4d97-9b22-ca6ab6e3e830" />
+
+
+
+<img width="1515" height="870" alt="image" src="https://github.com/user-attachments/assets/6ae4a788-a333-437a-9cd9-15761cf04a00" />
+
+
+
+<img width="1655" height="862" alt="Screenshot 2026-03-21 143033" src="https://github.com/user-attachments/assets/1cd6dc36-a33e-45a2-8bc8-49e606b7a19b" />
+
