@@ -69,53 +69,12 @@ export default async (req: Request) => {
         inline_data: { mime_type: resolvedMimeType, data: base64Data },
       });
 
-      // Generate a text description for images so the RAG context is rich
+      // Let Gemini Embedding 2 naturally handle images without needing text descriptions
       if (!text) {
-        const isImage = resolvedMimeType.startsWith('image/');
-        const isAudio = resolvedMimeType.startsWith('audio/');
-
-        if (isImage) {
-          const aiBaseUrl = Deno.env.get('INSFORGE_BASE_URL') || '';
-          const aiKey = Deno.env.get('API_KEY') || '';
-          try {
-            const descResp = await fetch(`${aiBaseUrl}/api/ai/chat/completion`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${aiKey}`,
-              },
-              body: JSON.stringify({
-                model: 'openai/gpt-4o-mini',
-                messages: [
-                  {
-                    role: 'user',
-                    content: [
-                      {
-                        type: 'text',
-                        text: 'Describe this image in detail. Include all visible text, objects, colors, layout, and any important information. Be thorough.',
-                      },
-                      {
-                        type: 'image_url',
-                        image_url: { url: `data:${resolvedMimeType};base64,${base64Data}` },
-                      },
-                    ],
-                  },
-                ],
-              }),
-            });
-            if (descResp.ok) {
-              const descData = await descResp.json();
-              const description = descData.text || '';
-              if (description) contentDescription = description;
-            }
-          } catch (_e) {
-            // description generation failed — fall through to fallback
-          }
-          if (!contentDescription) {
-            contentDescription = '[Image file — embedded via multimodal vector]';
-          }
-        } else if (isAudio) {
-          contentDescription = '[Audio file — embedded via multimodal vector]';
+        if (resolvedMimeType.startsWith('image/')) {
+          contentDescription = '[Image file — embedded natively via multimodal vector]';
+        } else if (resolvedMimeType.startsWith('audio/')) {
+          contentDescription = '[Audio file — embedded natively via multimodal vector]';
         } else {
           contentDescription = `[File uploaded: ${resolvedMimeType}]`;
         }

@@ -4,17 +4,15 @@ A full-stack multimodal Retrieval-Augmented Generation (RAG) demo. Upload text a
 
 Built with **InsForge BaaS**, **Google Gemini Embedding 2**, and **React + Vite**.
 
-
 <img width="1331" height="847" alt="image" src="https://github.com/user-attachments/assets/7b3f3b12-9d2c-48b7-924e-69118eb6a38d" />
-
 
 ---
 
 ## How it works
 
-1. **Upload** — text or images are embedded using Google Gemini Embedding 2 Preview (natively multimodal: text and images in the same vector space) and stored in InsForge's pgvector database. Images also get a GPT-4o Mini-generated description for richer RAG context.
+1. **Upload** — text or images are embedded using Google Gemini Embedding 2 Preview (natively multimodal: text and images in the same vector space) and stored in InsForge's pgvector database. Images are natively supported by the vector without needing external textual mapping.
 2. **Search** — your question is embedded with the same Gemini model and matched against stored content using cosine similarity via pgvector.
-3. **Answer** — GPT-4o Mini (via InsForge Model Gateway) generates a grounded answer from the top matched context, with source citations.
+3. **Answer** — The exact image and relevant text are loaded into InsForge Model Gateway running **Gemini 2.5 Flash Lite**. It generates a multimodal answer natively analyzing the raw image based on the question and stored knowledge.
 
 Data is fully isolated per user — every upload, embedding, and storage path is scoped to the authenticated user's ID.
 
@@ -22,20 +20,20 @@ Data is fully isolated per user — every upload, embedding, and storage path is
 
 ## InsForge features used
 
-| Feature | Usage |
-|---|---|
-| **InsForge Auth** | Sign-up / sign-in via hosted auth pages, session management |
-| **Model Gateway** | GPT-4o Mini for image descriptions and RAG answer generation |
-| **InsForge Vector** | pgvector cosine similarity search on 1024-dim Gemini embeddings |
-| **InsForge Storage** | Image uploads stored under `uploads/{userId}/` |
-| **Edge Functions** | Deno serverless functions for embedding processing and query |
+| Feature              | Usage                                                           |
+| -------------------- | --------------------------------------------------------------- |
+| **InsForge Auth**    | Sign-up / sign-in via hosted auth pages, session management     |
+| **Model Gateway**    | Gemini 2.5 Flash Lite for multimodal RAG answer generation      |
+| **InsForge Vector**  | pgvector cosine similarity search on 1024-dim Gemini embeddings |
+| **InsForge Storage** | Image uploads stored under `uploads/{userId}/`                  |
+| **Edge Functions**   | Deno serverless functions for embedding processing and query    |
 
 ---
 
 ## Tech stack
 
 - **InsForge BaaS** — database (pgvector), storage, edge functions, auth, AI gateway
-- **Google Gemini Embedding 2** — multimodal embeddings (text + images, 1024 dimensions)
+- **Google Gemini** — natively multimodal representations (Embedding 2 Preview)
 - **React + Vite + TypeScript + Tailwind CSS** — frontend
 
 ---
@@ -145,13 +143,13 @@ Create a bucket named `uploads` in your InsForge dashboard (Storage → New buck
 
 Set these in InsForge dashboard → Settings → Secrets:
 
-| Secret | Value |
-|---|---|
-| `GOOGLE_API_KEY` | From [Google AI Studio](https://aistudio.google.com/apikey) |
-| `API_KEY` | Your InsForge service/admin key |
-| `ANON_KEY` | Your InsForge anonymous key |
-| `INSFORGE_BASE_URL` | `https://your-app.region.insforge.app` |
-| `INSFORGE_INTERNAL_URL` | Internal URL (from InsForge dashboard) |
+| Secret                  | Value                                                       |
+| ----------------------- | ----------------------------------------------------------- |
+| `GOOGLE_API_KEY`        | From [Google AI Studio](https://aistudio.google.com/apikey) |
+| `API_KEY`               | Your InsForge service/admin key                             |
+| `ANON_KEY`              | Your InsForge anonymous key                                 |
+| `INSFORGE_BASE_URL`     | `https://your-app.region.insforge.app`                      |
+| `INSFORGE_INTERNAL_URL` | Internal URL (from InsForge dashboard)                      |
 
 ### 6. Deploy edge functions
 
@@ -172,21 +170,12 @@ npm run dev
 
 Push to GitHub, connect to Vercel, and set the same environment variables (`VITE_INSFORGE_BASE_URL`, `VITE_API_URL`, `VITE_INSFORGE_ANON_KEY`) in Vercel's project settings. The `vercel.json` handles SPA routing.
 
-
 ## Screenshots
 
 <img width="1445" height="859" alt="Screenshot 2026-03-21 145409" src="https://github.com/user-attachments/assets/20f186e9-5053-4b01-b5f8-de3a2306a6cd" />
 
-
-
-
 <img width="1775" height="834" alt="Screenshot 2026-03-21 135230" src="https://github.com/user-attachments/assets/39a7e2f4-fb35-4d97-9b22-ca6ab6e3e830" />
-
-
 
 <img width="1515" height="870" alt="image" src="https://github.com/user-attachments/assets/6ae4a788-a333-437a-9cd9-15761cf04a00" />
 
-
-
 <img width="1655" height="862" alt="Screenshot 2026-03-21 143033" src="https://github.com/user-attachments/assets/1cd6dc36-a33e-45a2-8bc8-49e606b7a19b" />
-

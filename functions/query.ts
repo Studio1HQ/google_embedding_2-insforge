@@ -91,8 +91,10 @@ export default async (req: Request) => {
 
     const sqlQuery = `
       SELECT e.content, e.document_id, e.created_at,
+             d.file_url, d.file_type,
              1 - (e.embedding <=> $1::vector) AS similarity
       FROM   embeddings e
+      LEFT JOIN documents d ON e.document_id = d.id
       WHERE  e.user_id = $2
         AND  1 - (e.embedding <=> $1::vector) > 0.25
       ORDER  BY similarity DESC
@@ -122,10 +124,46 @@ export default async (req: Request) => {
       document_id: row.document_id,
       similarity: row.similarity,
       created_at: row.created_at,
+      file_url: row.file_url,
+      file_type: row.file_type,
     }));
 
-    // ── 5. Generate answer via InsForge Model Gateway ─────────────────────────
-    const context = sources.map((s: any) => s.content).join('\n\n');
+    // ── 5. Generate answer via InsForge AI Gateway ───────────────────────────
+    const dbContext = sources.map((s: any) => s.content).join('\n\n');
+    const userContent: any[] = [{ type: 'text', text: `Context:\n${dbContext}\n\nQuestion:\n${query}` }];
+
+    // Convert ArrayBuffer to Base64
+    const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    };
+
+    // Append raw images as context
+    for (const source of sources) {
+      if (source.file_type?.startsWith('image/') && source.file_url) {
+        try {
+          const fileResp = await fetch(source.file_url, {
+            headers: { Authorization: `Bearer ${serviceKey}` }
+          });
+          
+          if (fileResp.ok) {
+            const buffer = await fileResp.arrayBuffer();
+            const base64 = arrayBufferToBase64(buffer);
+            userContent.push({
+              type: 'image_url',
+              image_url: { url: `data:${source.file_type};base64,${base64}` }
+            });
+          }
+        } catch (err) {
+          console.error("Failed to fetch image for context:", err);
+        }
+      }
+    }
 
     const aiResp = await fetch(`${baseUrl}/api/ai/chat/completion`, {
       method: 'POST',
@@ -134,17 +172,17 @@ export default async (req: Request) => {
         Authorization: `Bearer ${serviceKey}`,
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: 'google/gemini-2.5-flash-lite',
         messages: [
           {
             role: 'system',
-            content: 'You are a helpful assistant. Answer ONLY using the provided context.',
+            content: 'You are a helpful assistant. Answer ONLY using the provided context. If images are provided, refer to them accurately.'
           },
           {
             role: 'user',
-            content: `Context:\n${context}\n\nQuestion:\n${query}`,
-          },
-        ],
+            content: userContent
+          }
+        ]
       }),
     });
 
